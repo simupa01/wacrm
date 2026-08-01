@@ -53,6 +53,38 @@ docker build \
 docker run -d --env-file .env.local -e PORT=3000 -p 3000:3000 wacrm
 ```
 
+## Deploy on Easypanel
+
+Easypanel builds directly from the `Dockerfile` in this repo — it does
+**not** read `docker-compose.yml`, so build args and runtime secrets
+both need to be entered in its UI instead of `.env.local`.
+
+1. **Create App → From a Git repository**, pointing at your fork.
+   Easypanel detects the `Dockerfile` automatically (build method
+   "Dockerfile").
+2. **Build args** (Easypanel's *Build* tab → *Build Arguments*) — add
+   these `NEXT_PUBLIC_*` values, since they're inlined at build time
+   and unreachable at runtime:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_SITE_URL` (your Easypanel domain, e.g. `https://crm.yourdomain.com`)
+   - `NEXT_PUBLIC_APP_LOCALE` (optional, defaults to `en`)
+3. **Environment variables** (Easypanel's *Environment* tab) — add
+   the runtime-only secrets instead: `SUPABASE_SERVICE_ROLE_KEY`,
+   `ENCRYPTION_KEY`, `META_APP_SECRET`, and any optional vars from
+   `.env.local.example` you use. These are read at container start,
+   never baked into the image, so changing them just needs a restart
+   (no rebuild).
+4. **Domain / port** — set the container port to `3000` when adding
+   your domain; the image listens there (`EXPOSE 3000` /
+   `HOSTNAME=0.0.0.0`). Easypanel terminates TLS, so no extra config
+   is needed for HTTPS.
+5. Deploy. The image ships a Docker `HEALTHCHECK` that Easypanel picks
+   up automatically to report container health.
+6. As with any deployment, database migrations under `supabase/` and
+   the cron endpoints described below are your responsibility —
+   Easypanel doesn't run either automatically.
+
 ## Notes
 
 - Database migrations under `supabase/` are **not** run by the
